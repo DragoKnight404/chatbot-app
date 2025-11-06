@@ -6,7 +6,7 @@ pipeline {
     // =========================================================================
     environment {
         AWS_REGION          = "ap-south-1" // Your AWS Region
-        ECR_REPO_URI        = "http://416521764601.dkr.ecr.ap-south-1.amazonaws.com/chatbot-backend" // Paste the ECR URI from Step 2
+        ECR_REPO_URI        = "416521764601.dkr.ecr.ap-south-1.amazonaws.com/chatbot-backend" // Paste the ECR URI
         EBS_APP_NAME        = "chatbot-app-backend" // The name of your EBS Application
         EBS_ENV_NAME        = "Chatbot-app-backend-env" // The name of your EBS Environment
         S3_BUCKET_NAME      = "chatbot-app-frontend" // Your S3 bucket for the frontend
@@ -29,15 +29,13 @@ pipeline {
                 echo "Building image: ${IMAGE_NAME}"
                 sh "docker build -t ${IMAGE_NAME} ./backend"
                 
-                // --- FIX 1: Wrap docker.withRegistry in a 'script' block ---
+                // 2. Log in to ECR & Push the Image
                 script {
-                    // 2. Log in to ECR & Push the Image
                     docker.withRegistry("https://${ECR_REPO_URI}", "ecr:${AWS_REGION}") {
                         echo "Logging into ECR and pushing image..."
                         sh "docker push ${IMAGE_NAME}"
                     }
                 }
-                // --- END OF FIX 1 ---
                 
                 // 3. Create the Dockerrun.aws.json file for EBS
                 echo "Creating Dockerrun.aws.json..."
@@ -80,13 +78,11 @@ pipeline {
             steps {
                 echo "✅ Change detected in /frontend. Syncing files to S3..."
                 
-                // --- FIX 2: Replace 's3Upload' with the AWS CLI 'aws s3 sync' ---
                 withAWS(region: "${AWS_REGION}") {
-                    // This command syncs the ./frontend directory to the root of your S3 bucket
-                    // --delete ensures that old files are removed
-                    sh "aws s3 sync ./frontend s3://${S3_BUCKET_NAME} --delete"
+                    // --- 🚀 FIX 2: Added '--acl public-read' ---
+                    // This flag automatically makes all uploaded files public
+                    sh "aws s3 sync ./frontend s3://${S3_BUCKET_NAME} --delete --acl public-read"
                 }
-                // --- END OF FIX 2 ---
             }
         }
     }
