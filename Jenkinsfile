@@ -7,9 +7,9 @@ pipeline {
     environment {
         AWS_REGION          = "ap-south-1" // Your AWS Region
         ECR_REPO_URI        = "http://416521764601.dkr.ecr.ap-south-1.amazonaws.com/chatbot-backend" // Paste the ECR URI from Step 2
-        EBS_APP_NAME        = "your-ebs-app-name" // The name of your EBS Application
-        EBS_ENV_NAME        = "your-ebs-env-name" // The name of your EBS Environment
-        S3_BUCKET_NAME      = "your-s3-bucket-name" // Your S3 bucket for the frontend
+        EBS_APP_NAME        = "chatbot-app-backend" // The name of your EBS Application
+        EBS_ENV_NAME        = "Chatbot-app-backend-env" // The name of your EBS Environment
+        S3_BUCKET_NAME      = "chatbot-app-frontend" // Your S3 bucket for the frontend
     }
 
     stages {

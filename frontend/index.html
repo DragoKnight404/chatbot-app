@@ -394,7 +394,7 @@
     </div>
 
     <script>
-        const API_URL = 'http://chatbot007.ap-south-1.elasticbeanstalk.com/chat';
+        const API_URL = 'http://chatbot-app.ap-south-1.elasticbeanstalk.com/chat';
         
         // Configure marked for security
         marked.setOptions({
@@ -525,7 +525,7 @@
                 </div>
             `;
             
-            fetch('http://chatbot007.ap-south-1.elasticbeanstalk.com/clear', {
+            fetch('http://chatbot-app.ap-south-1.elasticbeanstalk.com/clear', {
                 method: 'POST'
             }).catch(err => console.error('Error clearing context:', err));
         }
