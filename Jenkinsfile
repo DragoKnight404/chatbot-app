@@ -16,30 +16,30 @@ pipeline {
         
         // =================================================================
         // == 📦 STAGE 1: BACKEND DEPLOYMENT 📦 ==
-        // == This only runs if you change files in the 'backend' folder ==
         // =================================================================
         stage('Deploy Backend') {
-            when { changeset "backend/**" } // Detects changes in the backend folder
+            when { changeset "backend/**" } 
             steps {
                 echo "✅ Change detected in /backend. Starting Docker build and deploy..."
                 
                 // 1. Build the Docker Image
-                // We'll tag it with the ECR URI and the build number
                 script {
                     IMAGE_NAME = "${ECR_REPO_URI}:${env.BUILD_NUMBER}"
                 }
                 echo "Building image: ${IMAGE_NAME}"
                 sh "docker build -t ${IMAGE_NAME} ./backend"
                 
-                // 2. Log in to ECR & Push the Image
-                // 'ecr:ap-south-1' tells Jenkins to use the IAM Role from Step 1
-                docker.withRegistry("https://${ECR_REPO_URI}", "ecr:${AWS_REGION}") {
-                    echo "Logging into ECR and pushing image..."
-                    sh "docker push ${IMAGE_NAME}"
+                // --- FIX 1: Wrap docker.withRegistry in a 'script' block ---
+                script {
+                    // 2. Log in to ECR & Push the Image
+                    docker.withRegistry("https://${ECR_REPO_URI}", "ecr:${AWS_REGION}") {
+                        echo "Logging into ECR and pushing image..."
+                        sh "docker push ${IMAGE_NAME}"
+                    }
                 }
+                // --- END OF FIX 1 ---
                 
                 // 3. Create the Dockerrun.aws.json file for EBS
-                // This file tells EBS which image to pull
                 echo "Creating Dockerrun.aws.json..."
                 sh """
                 echo '{ \\
@@ -57,7 +57,6 @@ pipeline {
                 """
                 
                 // 4. Zip the deployment file
-                // EBS only accepts a .zip file, even if it's just one file
                 sh "zip -j deploy.zip Dockerrun.aws.json"
                 
                 // 5. Deploy to Elastic Beanstalk
@@ -66,7 +65,7 @@ pipeline {
                     ebDeploy(
                         applicationName: "${EBS_APP_NAME}", 
                         environmentName: "${EBS_ENV_NAME}", 
-                        versionLabel: "v-${env.BUILD_NUMBER}", // e.g., v-42
+                        versionLabel: "v-${env.BUILD_NUMBER}", 
                         zipFile: "deploy.zip"
                     )
                 }
@@ -75,21 +74,19 @@ pipeline {
 
         // =================================================================
         // == 🌐 STAGE 2: FRONTEND DEPLOYMENT 🌐 ==
-        // == This only runs if you change files in the 'frontend' folder ==
         // =================================================================
         stage('Deploy Frontend') {
-            when { changeset "frontend/**" } // Detects changes in the frontend folder
+            when { changeset "frontend/**" } 
             steps {
                 echo "✅ Change detected in /frontend. Syncing files to S3..."
                 
-                // 1. Use the 'withAWS' helper (from the plugin) to sync to S3
+                // --- FIX 2: Replace 's3Upload' with the AWS CLI 'aws s3 sync' ---
                 withAWS(region: "${AWS_REGION}") {
-                    s3Upload(
-                        bucket: "${S3_BUCKET_NAME}", // The bucket to upload to
-                        source: 'frontend',          // The local folder to upload
-                        workingDir: '.'              // Where to find the 'frontend' folder
-                    )
+                    // This command syncs the ./frontend directory to the root of your S3 bucket
+                    // --delete ensures that old files are removed
+                    sh "aws s3 sync ./frontend s3://${S3_BUCKET_NAME} --delete"
                 }
+                // --- END OF FIX 2 ---
             }
         }
     }
