@@ -10,19 +10,19 @@ pipeline {
         EBS_APP_NAME        = "chatbot-app-backend" // The name of your EBS Application
         EBS_ENV_NAME        = "Chatbot-app-backend-env" // The name of your EBS Environment
         S3_BUCKET_NAME      = "chatbot-app-frontend" // Your S3 bucket for the frontend
+        EBS_S3_BUCKET       = "elasticbeanstalk-ap-south-1-416521764601" // EBS's private S3 bucket
     }
 
     stages {
         
-        // =================================================================
+        // =D===============================================================
         // == 📦 STAGE 1: BACKEND DEPLOYMENT (FIXED) 📦 ==
         // =================================================================
         stage('Deploy Backend') {
             when { changeset "backend/**" } 
             steps {
-                // --- FIX 2: Define IMAGE_NAME using 'env' for proper scope ---
                 script {
-                    // This makes the variable available to all steps in this stage
+                    // Define variable for all steps
                     env.IMAGE_NAME = "${ECR_REPO_URI}:${env.BUILD_NUMBER}"
                 }
                 
@@ -32,19 +32,16 @@ pipeline {
                 echo "Building image: ${env.IMAGE_NAME}"
                 sh "docker build -t ${env.IMAGE_NAME} ./backend"
                 
-                // --- FIX 1: Replaced 'docker.withRegistry' with explicit AWS CLI login ---
-                // This is much more reliable and uses the IAM role from the withAWS plugin.
+                // 2. Log in to ECR & Push the Image
                 withAWS(region: "${AWS_REGION}") {
                     echo "Logging into ECR..."
-                    // This command gets a password from ECR and pipes it to 'docker login'
                     sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_URI}"
                     
                     echo "Pushing image to ECR..."
                     sh "docker push ${env.IMAGE_NAME}"
                 }
-                // --- END OF FIX 1 ---
                 
-                // 3. Create the Dockerrun.aws.json file for EBS
+                // 3. Create the Dockerrun.aws.json file
                 echo "Creating Dockerrun.aws.json..."
                 sh """
                 echo '{ \\
@@ -64,16 +61,37 @@ pipeline {
                 // 4. Zip the deployment file
                 sh "zip -j deploy.zip Dockerrun.aws.json"
                 
-                // 5. Deploy to Elastic Beanstalk
+                // --- 🚀 NEW AWS CLI DEPLOYMENT (REPLACES ebDeploy) 🚀 ---
+                
+                // 5. Deploy to Elastic Beanstalk using AWS CLI
                 echo "Deploying new version to Elastic Beanstalk..."
                 withAWS(region: "${AWS_REGION}") {
-                    ebDeploy(
-                        applicationName: "${EBS_APP_NAME}", 
-                        environmentName: "${EBS_ENV_NAME}", 
-                        versionLabel: "v-${env.BUILD_NUMBER}", 
-                        zipFile: "deploy.zip"
-                    )
+                    
+                    def versionLabel = "v-${env.BUILD_NUMBER}"
+                    def s3Key = "deploy/${versionLabel}.zip" // The path in the S3 bucket
+
+                    // 5a. Upload zip to the EBS S3 bucket
+                    echo "Uploading deploy.zip to EBS S3 bucket..."
+                    sh "aws s3 cp deploy.zip s3://${EBS_S3_BUCKET}/${s3Key}"
+
+                    // 5b. Create new application version
+                    echo "Creating new application version: ${versionLabel}..."
+                    sh """
+                        aws elasticbeanstalk create-application-version \
+                          --application-name "${EBS_APP_NAME}" \
+                          --version-label "${versionLabel}" \
+                          --source-bundle S3Bucket="${EBS_S3_BUCKET}",S3Key="${s3Key}"
+                    """
+
+                    // 5c. Update the environment to the new version
+                    echo "Updating environment ${EBS_ENV_NAME}..."
+                    sh """
+                        aws elasticbeanstalk update-environment \
+                          --environment-name "${EBS_ENV_NAME}" \
+                          --version-label "${versionLabel}"
+                    """
                 }
+                // --- END OF NEW DEPLOYMENT STEPS ---
             }
         }
 
