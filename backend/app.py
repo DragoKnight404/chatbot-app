@@ -21,7 +21,7 @@ client = Groq(api_key=groq_api_key)
 # Conversation history with sliding window
 # Each entry is a dict with 'role' (user/assistant) and 'content'
 conversation_history = []
-MAX_HISTORY = 22  # Keep last 20 messages (10 Q&A pairs)
+MAX_HISTORY = 20  # Keep last 20 messages (10 Q&A pairs)
 
 @app.route('/chat', methods=['POST'])
 def chat():
