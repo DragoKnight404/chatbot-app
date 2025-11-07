@@ -15,27 +15,34 @@ pipeline {
     stages {
         
         // =================================================================
-        // == 📦 STAGE 1: BACKEND DEPLOYMENT 📦 ==
+        // == 📦 STAGE 1: BACKEND DEPLOYMENT (FIXED) 📦 ==
         // =================================================================
         stage('Deploy Backend') {
             when { changeset "backend/**" } 
             steps {
+                // --- FIX 2: Define IMAGE_NAME using 'env' for proper scope ---
+                script {
+                    // This makes the variable available to all steps in this stage
+                    env.IMAGE_NAME = "${ECR_REPO_URI}:${env.BUILD_NUMBER}"
+                }
+                
                 echo "✅ Change detected in /backend. Starting Docker build and deploy..."
                 
                 // 1. Build the Docker Image
-                script {
-                    IMAGE_NAME = "${ECR_REPO_URI}:${env.BUILD_NUMBER}"
-                }
-                echo "Building image: ${IMAGE_NAME}"
-                sh "docker build -t ${IMAGE_NAME} ./backend"
+                echo "Building image: ${env.IMAGE_NAME}"
+                sh "docker build -t ${env.IMAGE_NAME} ./backend"
                 
-                // 2. Log in to ECR & Push the Image
-                script {
-                    docker.withRegistry("https://${ECR_REPO_URI}", "ecr:${AWS_REGION}") {
-                        echo "Logging into ECR and pushing image..."
-                        sh "docker push ${IMAGE_NAME}"
-                    }
+                // --- FIX 1: Replaced 'docker.withRegistry' with explicit AWS CLI login ---
+                // This is much more reliable and uses the IAM role from the withAWS plugin.
+                withAWS(region: "${AWS_REGION}") {
+                    echo "Logging into ECR..."
+                    // This command gets a password from ECR and pipes it to 'docker login'
+                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_URI}"
+                    
+                    echo "Pushing image to ECR..."
+                    sh "docker push ${env.IMAGE_NAME}"
                 }
+                // --- END OF FIX 1 ---
                 
                 // 3. Create the Dockerrun.aws.json file for EBS
                 echo "Creating Dockerrun.aws.json..."
@@ -43,7 +50,7 @@ pipeline {
                 echo '{ \\
                   "AWSEBDockerrunVersion": "1", \\
                   "Image": { \\
-                    "Name": "${IMAGE_NAME}", \\
+                    "Name": "${env.IMAGE_NAME}", \\
                     "Update": "true" \\
                   }, \\
                   "Ports": [ \\
