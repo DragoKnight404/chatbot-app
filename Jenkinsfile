@@ -9,7 +9,7 @@ pipeline {
         ECR_REPO_URI        = "416521764601.dkr.ecr.ap-south-1.amazonaws.com/chatbot-backend" 
         EBS_APP_NAME        = "chatbot-app-backend" 
         EBS_ENV_NAME        = "Chatbot-app-backend-env" 
-        S3_BUCKET_NAME      = "chatbot-app-frontend"
+        S3_BUCKET_NAME      = "my-s3-bucket-001-demo"
         EBS_S3_BUCKET       = "elasticbeanstalk-ap-south-1-416521764601"
     }
 
