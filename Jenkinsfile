@@ -1,11 +1,8 @@
 pipeline {
-    agent any // Use any available Jenkins worker
+    agent any
 
-    // =========================================================================
-    // == ⬇️⬇️ (1) YOU MUST CHANGE THESE VALUES ⬇️⬇️ ==
-    // =========================================================================
     environment {
-        AWS_REGION          = "ap-south-1" 
+        AWS_REGION          = "ap-south-0" 
         ECR_REPO_URI        = "416521764601.dkr.ecr.ap-south-1.amazonaws.com/chatbot-backend" 
         EBS_APP_NAME        = "chatbot-app-backend" 
         EBS_ENV_NAME        = "Chatbot-app-backend-env" 
@@ -14,10 +11,6 @@ pipeline {
     }
 
     stages {
-        
-        // =================================================================
-        // == 📦 STAGE 1: BACKEND DEPLOYMENT (FINAL FIX) 📦 ==
-        // =================================================================
         stage('Deploy Backend') {
             when { changeset "backend/**" } 
             steps {
@@ -40,9 +33,7 @@ pipeline {
                     sh "docker push ${env.IMAGE_NAME}"
                 }
                 
-                // --- 🚀 3. (FIXED) Create the Dockerrun.aws.json file 🚀 ---
-                // We are now using the 'writeFile' step, which is the
-                // correct, reliable way to create a file in Jenkins.
+                // Create the Dockerrun.aws.json file 
                 echo "Creating Dockerrun.aws.json..."
                 writeFile file: 'Dockerrun.aws.json', text: """
                 {
@@ -58,7 +49,6 @@ pipeline {
                   ]
                 }
                 """
-                // --- END OF FIX ---
                 
                 // 4. Zip the deployment file
                 sh "zip -j deploy.zip Dockerrun.aws.json"
