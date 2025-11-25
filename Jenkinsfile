@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION          = "ap-south-0" 
+        AWS_REGION          = "ap-south-1" 
         ECR_REPO_URI        = "416521764601.dkr.ecr.ap-south-1.amazonaws.com/chatbot-backend" 
         EBS_APP_NAME        = "chatbot-app-backend" 
         EBS_ENV_NAME        = "Chatbot-app-backend-env" 
