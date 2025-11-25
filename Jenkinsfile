@@ -9,7 +9,7 @@ pipeline {
         S3_BUCKET_NAME      = "my-s3-bucket-001-demo"
         EBS_S3_BUCKET       = "elasticbeanstalk-ap-south-1-416521764601"
     }
-
+    // Backend deployment
     stages {
         stage('Deploy Backend') {
             when { changeset "backend/**" } 
@@ -97,10 +97,7 @@ pipeline {
                 }
             }
         }
-
-        // =================================================================
-        // == 🌐 STAGE 2: FRONTEND DEPLOYMENT 🌐 ==
-        // =================================================================
+        // Frontend deployment
         stage('Deploy Frontend') {
             when { changeset "frontend/**" } 
             steps {
